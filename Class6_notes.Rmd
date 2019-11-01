@@ -53,6 +53,8 @@ class(data$Response_Time)
 
 data$Response_Time <- as.numeric(data$Response_Time)
 
+data <- na.omit(data)
+
 ```
 
 
@@ -131,7 +133,36 @@ Note that you need to check assumptions for reading time data in condition 1 and
   Hint: filter() function might help. 
 
 ```{r}
+#Filter by condition 
+kiss_df <- filter(data, data$Condition == "kiss")
 
+save_df <- filter(data, data$Condition == "save")
+
+#Kiss data
+#Histogram kiss data 
+ggplot(kiss_df, aes(x = kiss_df$Response_Time)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.25) +
+  ggtitle("Is response time for a word in kiss condition normally distributed") +
+  stat_function(fun = dnorm, args = list(mean = mean(kiss_df$Response_Time, na.rm = TRUE), sd = sd(kiss_df$Response_Time, na.rm = TRUE)), colour= "darkgreen", size = 1)+
+  theme_classic()
+
+#qqplot kiss data
+qqnorm(kiss_df$Response_Time)
+
+#Descriptive stats kiss data 
+round(pastecs::stat.desc(kiss_df$Response_Time, basic = FALSE, norm = TRUE), digits = 2)
+
+#Save data
+#Visual save data 
+ggplot(save_df, aes(x = save_df$Response_Time)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.25) +
+  ggtitle("Is response time for a word in save condition normally distributed") +
+  stat_function(fun = dnorm, args = list(mean = mean(save_df$Response_Time, na.rm = TRUE), sd = sd(save_df$Response_Time, na.rm = TRUE)), colour= "darkgreen", size = 1)+
+  theme_classic()
+
+qqnorm(save_df$Response_Time)
+
+round(pastecs::stat.desc(save_df$Response_Time, basic = FALSE, norm = TRUE), digits = 2)
 ```
 
 
@@ -145,7 +176,8 @@ First, remove obvious outliers in the data. Then try to apply a transformation t
 3.3 T-test
 Perform a t-test to test if there is a significant difference in reading time between conditions of your experiment. If you performed previous assumptions check and data transformation on subsets of data, make sure you perform the t-test on the whole dataset that contains both conditions and potentially your transformed reaction time variable.
 ```{r}
-
+#Independent t-test, var.equal = FALSE, Paried = FALSE
+t.test(Response_Time ~ Condition, data = data)
 ```
 
 
@@ -153,6 +185,12 @@ Perform a t-test to test if there is a significant difference in reading time be
 For that, make a plot that demonstrates the mean value of reading time in two conditions with corresponding error bars. It could be for example a bar plot or box plot or violin plot with marks of the mean values (you can reuse code from Class4_notes if you want). Remember that ggplot wants your condition variable to be a factor to plot data in 2 different groups. 
 
 ```{r}
+
+ggplot(data, aes(x = data$Condition, y = data$Response_Time, fill = Condition)) + 
+  geom_bar(stat = 'summary', fun.y = mean, width = 0.25) +
+  geom_errorbar(stat = 'summary', fun.data = mean_se, width = 0.1) +
+  labs(x = "Condition", y = "Response time") + 
+  ggtitle("Barplot of condition") 
 
 ```
 
