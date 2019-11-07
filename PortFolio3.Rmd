@@ -1,0 +1,176 @@
+---
+title: "Portfolio 3"
+author: "Martine Lind Jensen"
+date: "6/11/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(pacman)
+
+pacman::p_load(tidyverse, pastecs, WRS2, stringi, stringr, anytime)
+```
+
+
+```{r loading data}
+#get a vector with names of files using list.files() 
+files <- list.files(path = "data",   
+                    pattern = ".csv",  #everything that contains '.csv' in its name will be listed
+                    full.names = T)    #makes it include directory path, so instead of 'logfile_1.csv' it will be 'data/logfile_1.csv')
+
+#read all the files into a tibble 
+data <- lapply(files, read_csv) %>%  
+  plyr::rbind.fill()  
+
+#Changing to numeric 
+data$Response_Time <- as.numeric(data$Response_Time)
+
+#Removing na
+data <- na.omit(data)
+
+#Removing wrong words 
+data <- filter(data, Word != "ago,the")
+
+```
+
+**Part 1: Correlation analysis of word length, word frequency and word number**
+Which properties of words correlate with word-by-word reading times?
+??only use save condition?? 
+
+*Testing assumptions for response time data.*
+```{r assumptions}
+#Checking if response_time data is normally distributed 
+#Histogram response_time data 
+ggplot(data, aes(x = data$Response_Time)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.25) +
+  ggtitle("Are response_time data normally distributed") +
+  stat_function(fun = dnorm, args = list(mean = mean(data$Response_Time, na.rm = TRUE), sd = sd(data$Response_Time, na.rm = TRUE)), colour= "darkgreen", size = 1)+
+  theme_classic()
+
+#qqplot response_time data
+qqnorm(data$Response_Time)
+
+#Descriptive stats response_time data 
+round(pastecs::stat.desc(data$Response_Time, basic = FALSE, norm = TRUE), digits = 2)
+```
+
+Transforming response time data with log function.##Can you check if removing outliers help.
+```{r assumptions}
+#The data are not normally distributed 
+data_log <- data %>% mutate(rt_log = log(data$Response_Time)) #log transformation
+
+#Checking if rt_log data is normally distributed 
+#Histogram response_time data 
+ggplot(data_log, aes(x = data_log$rt_log)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.25) +
+  ggtitle("Are log response time data normally distributed") +
+  stat_function(fun = dnorm, args = list(mean = mean(data_log$rt_log, na.rm = TRUE), sd = sd(data_log$rt_log, na.rm = TRUE)), colour= "darkgreen", size = 1)+
+  theme_classic()
+
+#qqplot rt_log data
+qqnorm(data_log$rt_log)
+
+#Descriptive stats response_time data 
+round(pastecs::stat.desc(data_log$rt_log, basic = FALSE, norm = TRUE), digits = 2)
+```
+Response time is still not normally distributed, means that im using spearmans rho instead and therefore im not going to test normality for the wordlength, word frequency and word number. 
+
+
+*Testing correlation between word length and response time.* 
+```{r correlation analysis word length}
+#Making a new coloumn with word length 
+
+#Removing all else than letters
+data$Word <- str_replace_all(data$Word, "[:punct:]","")
+
+#Counting letters in the word 
+data$Word_length <- nchar(data$Word)
+
+ggplot(data, aes(x = data$Word_length, y = data$Response_Time)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+
+#Cant get spearman to work 
+output_spearman <- cor.test(data$Word_length, data$Response_Time, method = "kendall")
+
+output_spearman
+```
+
+*Testing correlation between word frequency and response time.*
+```{r correlation analysis word frequency}
+MRC <- read.csv("MRC_database.csv")
+
+logfile <- data
+
+#Rename the capitalized column to "word"
+colnames(logfile)[colnames(logfile)=="Word"] <- "word"
+
+#Convert your words into uppercase
+logfile$word <- toupper(logfile$word)
+
+#Mergin the two dataframes
+data_freq <- merge(MRC, logfile, by = "word")
+
+#Plotting the data 
+ggplot(data_freq, aes(x = data_freq$brown_freq, y = data_freq$Response_Time)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+
+data_freq_kendall <- cor.test(data_freq$brown_freq, data_freq$Response_Time, method = "kendall")
+
+data_freq_kendall
+```
+
+*Testing correlation between word number and response time.*
+```{r correlation analysis word number}
+
+#Plotting the data 
+ggplot(data, aes(x = data$X1, y = data$Response_Time)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+
+data_x1 <- cor.test(data$X1, data$Response_Time, method = "kendall")
+
+data_x1
+
+```
+
+*Conclusion part 1*
+
+
+**Part 2: Comparing means of ?? and ?? with t-test**
+How do semantic-contextual expectations affect reading times?
+
+*Filtering data*
+```{r}
+#use pipes? 
+data_clean <- filter(data, X1>=81)
+
+data_clean <- filter(data_clean, X1<=83)
+
+data_clean <- filter(data_clean, Word != "can")
+
+data_clean <- filter(data_clean, Word != "world")
+
+kiss_df <- filter(data_clean, Condition == "kiss")
+
+save_df <- filter(data_clean, Condition == "save")
+
+```
+
+*Testing assumptions, transforming data and removing outliers*
+```{r}
+
+```
+
+*T-test*
+```{r}
+
+```
+
+*Conclusion part 2*
