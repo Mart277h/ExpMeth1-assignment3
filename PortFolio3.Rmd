@@ -1,7 +1,7 @@
 ---
 title: "Portfolio 3"
 author: "Martine Lind Jensen"
-date: "6/11/2019"
+date: "12/11/2019"
 output: html_document
 ---
 
@@ -17,7 +17,7 @@ pacman::p_load(tidyverse, pastecs, WRS2, stringi, stringr, anytime)
 ```
 
 
-```{r loading data}
+```{r loading data, error = FALSE, warning=FALSE, message=FALSE}
 #get a vector with names of files using list.files() 
 files <- list.files(path = "data",   
                     pattern = ".csv",  #everything that contains '.csv' in its name will be listed
@@ -38,12 +38,14 @@ data <- filter(data, Word != "ago,the")
 
 ```
 
-**Part 1: Correlation analysis of word length, word frequency and word number**
-Which properties of words correlate with word-by-word reading times?
-??only use save condition?? 
+***Part 1: Correlation analysis of word length, word frequency and word number***
 
-*Testing assumptions for response time data.*
-```{r assumptions}
+Which properties of words correlate with word-by-word reading times?
+
+
+**Testing assumptions for response time data.**
+
+```{r assumptions response time}
 #Checking if response_time data is normally distributed 
 #Histogram response_time data 
 ggplot(data, aes(x = data$Response_Time)) +
@@ -59,10 +61,16 @@ qqnorm(data$Response_Time)
 round(pastecs::stat.desc(data$Response_Time, basic = FALSE, norm = TRUE), digits = 2)
 ```
 
-Transforming response time data with log function.##Can you check if removing outliers help.
-```{r assumptions}
+The data are not normally distributed, therefore i've tried to transform the data and remove the outliers. Then i've checked for normality.
+
+```{r assumptions log response time}
 #The data are not normally distributed 
 data_log <- data %>% mutate(rt_log = log(data$Response_Time)) #log transformation
+
+#Removing outliers
+data_log$z <- (data_log$rt_log-mean(data_log$rt_log))/sd(data_log$rt_log)
+
+data_log <- filter(data_log, z < 3 & z > -3)
 
 #Checking if rt_log data is normally distributed 
 #Histogram response_time data 
@@ -78,10 +86,20 @@ qqnorm(data_log$rt_log)
 #Descriptive stats response_time data 
 round(pastecs::stat.desc(data_log$rt_log, basic = FALSE, norm = TRUE), digits = 2)
 ```
-Response time is still not normally distributed, means that im using spearmans rho instead and therefore im not going to test normality for the wordlength, word frequency and word number. 
 
 
-*Testing correlation between word length and response time.* 
+The histogram, qqplot and all of the statistical tests doesn't approach normality. The p-value (p = .00) is very low, and the kurtosis (kurt.2SE > 1) and the skewness (skew.2SE > 1) are both bigger than one, which is very poor numbers for normally distributed data. 
+
+We use response time in all of the correlation, and since that is not normally distributed, i have decided to use kendalls tau as a correlation test. Kendalls tau doesn't assume normality and probably works better with smaller data sets, and we work with a data set with 20 participants, which is small data set. 
+
+
+
+**Testing correlation between word length and response time.**
+
+Checking correlation between word length and response time. 
+
+The hypothesis is that the longer the word is, the longer time it takes to read it. 
+
 ```{r correlation analysis word length}
 #Making a new coloumn with word length 
 
@@ -92,16 +110,27 @@ data$Word <- str_replace_all(data$Word, "[:punct:]","")
 data$Word_length <- nchar(data$Word)
 
 ggplot(data, aes(x = data$Word_length, y = data$Response_Time)) +
-  geom_point() +
+  geom_point(stat = "summary", fun.y = mean) +
   geom_smooth(method = "lm")
 
 #Cant get spearman to work 
-output_spearman <- cor.test(data$Word_length, data$Response_Time, method = "kendall")
+cor.test(data$Word_length, data$Response_Time, method = "kendall")
 
-output_spearman
 ```
 
-*Testing correlation between word frequency and response time.*
+
+There is a very small increase in response time as the word becomes longer tau = .06 and p < 0.01. 
+
+The correlation coeffecient (tau) is less than .1 which means that the effect size is almost non existing. But the p-value is less than .01, which means that the effect size is statistically significant.
+
+
+
+**Testing correlation between word frequency and response time.**
+
+Checking correlation between word frequency and response time.
+
+The hypothesis is that the more frequent a word is, the less time it takes to read. 
+
 ```{r correlation analysis word frequency}
 MRC <- read.csv("MRC_database.csv")
 
@@ -117,38 +146,64 @@ logfile$word <- toupper(logfile$word)
 data_freq <- merge(MRC, logfile, by = "word")
 
 #Plotting the data 
-ggplot(data_freq, aes(x = data_freq$brown_freq, y = data_freq$Response_Time)) +
+ggplot(data_freq, aes(x = data_freq$kf_freq, y = data_freq$Response_Time)) +
   geom_point() +
   geom_smooth(method = "lm")
 
-data_freq_kendall <- cor.test(data_freq$brown_freq, data_freq$Response_Time, method = "kendall")
+cor.test(data_freq$kf_freq, data_freq$Response_Time, method = "kendall")
 
-data_freq_kendall
 ```
 
-*Testing correlation between word number and response time.*
+
+There is no increase in response time as the word becomes less frequent tau = .01, p > 0.05. 
+
+
+**Testing correlation between word number and response time.**
+
+Checking correlation between the order of the word and the response time.
+
+The hypothesis is that people get faster at reading, the further in the experiment they get. 
+
 ```{r correlation analysis word number}
 
 #Plotting the data 
 ggplot(data, aes(x = data$X1, y = data$Response_Time)) +
-  geom_point() +
+  geom_point(stat = "summary", fun.y = mean) +
   geom_smooth(method = "lm")
 
-data_x1 <- cor.test(data$X1, data$Response_Time, method = "kendall")
-
-data_x1
-
+cor.test(data$X1, data$Response_Time, method = "kendall")
 ```
 
-*Conclusion part 1*
+
+There is a small decrease in response time as the word number increases tau = .15, p < 0.01. 
+
+The correlation coeffecient (tau) is bigger than .1 which is a small effect, and the p-value is less than .01, which means that the effect size is statistically significant.
 
 
-**Part 2: Comparing means of ?? and ?? with t-test**
+
+**Conclusion part 1**
+
+In the three properties of word-by-word reading we tested, only the word number showed a significantly effect. This could be because, as people get familiar with the experiment, they become faster at the task. And that could have an influence of the surprise word in our experiment, as it comes quite late in the text, where people tend to be faster. Perhaps because of boredom, perhaps because of experience with the experiment. 
+
+The word length showed a very small effect, but our text did not include any high-level reading words, so maybe the effect would have been bigger, if the text included longer and harder words.
+
+The word frequency showed no effect. We had a lot of odd words such as "airbender" and "avatar", so the database did not include a lot of the words in the text we used. This could have had an impact on the correlation test of frequency. 
+
+
+
+***Part 2: Comparing means of the surprise word and the follow-up word across condition with t-test***
+
 How do semantic-contextual expectations affect reading times?
 
-*Filtering data*
-```{r}
-#use pipes? 
+Our hypothesis is that it takes longer time to read a semantically different word than a normal word. 
+
+
+**Filtering data**
+
+Filtering the data so i have two seperate dataframes containing the suprise/normal word ("kiss"/"save") and the follow-up word ("the")
+
+```{r filtering data}
+
 data_clean <- filter(data, X1>=81)
 
 data_clean <- filter(data_clean, X1<=83)
@@ -157,20 +212,103 @@ data_clean <- filter(data_clean, Word != "can")
 
 data_clean <- filter(data_clean, Word != "world")
 
-kiss_df <- filter(data_clean, Condition == "kiss")
+the_df <- filter(data_clean, Word == "the")
 
-save_df <- filter(data_clean, Condition == "save")
-
-```
-
-*Testing assumptions, transforming data and removing outliers*
-```{r}
+ks_df <- filter(data_clean, Word != "the")
 
 ```
 
-*T-test*
-```{r}
+**Testing assumptions, transforming data and removing outliers**
 
+Testing assumption of normality to find out which t-test to use. 
+```{r assumptions the_df and ks_df}
+
+#The data
+#Histogram "the" data 
+ggplot(the_df, aes(x = the_df$Response_Time)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.1) +
+  ggtitle("Response time for the_df histogram") +
+  stat_function(fun = dnorm, args = list(mean = mean(the_df$Response_Time, na.rm = TRUE), sd = sd(the_df$Response_Time, na.rm = TRUE)), colour= "darkgreen", size = 1)+
+  theme_classic()
+
+#qqplot "the" data
+qqnorm(the_df$Response_Time)
+
+#Descriptive stats "the" data 
+round(pastecs::stat.desc(the_df$Response_Time, basic = FALSE, norm = TRUE), digits = 2)
+
+
+#ks data
+#Visual ks data 
+ggplot(ks_df, aes(x = ks_df$Response_Time)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.1) +
+  ggtitle("Resonse time for ks_df histogram") +
+  stat_function(fun = dnorm, args = list(mean = mean(ks_df$Response_Time, na.rm = TRUE), sd = sd(ks_df$Response_Time, na.rm = TRUE)), colour= "darkgreen", size = 1)+
+  theme_classic()
+
+qqnorm(ks_df$Response_Time)
+
+round(pastecs::stat.desc(ks_df$Response_Time, basic = FALSE, norm = TRUE), digits = 2)
 ```
 
-*Conclusion part 2*
+
+The data is not normally distributed and i estimate that it wont be normal even if i transform and removing outliers.
+
+
+**Making plots comparing the means**
+
+Barplot of the follow-up word with standard error as errorbars.
+
+```{r bar plot follow-up word}
+#Follow up word "the" 
+ggplot(the_df, aes(x = the_df$Condition, y = the_df$Response_Time)) +
+  theme_minimal() +
+    labs(x = "Condition", y = "Response time") +
+  geom_bar(aes(fill= Condition), stat='summary', fun.y = mean, width = 0.5) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", color = 'black', width = 0.1) +
+  ggtitle("The mean of the second word 'the' across conditions")
+```
+
+
+The plot shows no difference of the mean of the follow-up word across conditions.
+
+
+
+Barplot of the main word with standard error as errorbars.
+
+```{r barplot main word}
+#Main word kiss/save
+ggplot(the_df, aes(x = ks_df$Condition, y = ks_df$Response_Time)) +
+  theme_minimal() +
+    labs(x = "Condition", y = "Response time") +
+  geom_bar(aes(fill= Condition), stat='summary', fun.y = mean, width = 0.5) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", color = 'black', width = 0.1) +
+  ggtitle("The mean of the main word 'kiss/save' across conditions")
+```
+
+
+The barplot seem to show some difference of the main-word across the condition. But unfortunately for our hypothesis it seems to be taking longer to read the normal word than the surprising word. 
+
+
+
+**T-test**
+
+Making t-test to test the statiscally significance of compairing the means. I use the independent t-test from WRS2-package as the assumption of normality is violated and we have a between-participant design. 
+
+```{r t-tests}
+#the_df
+WRS2::yuen(Response_Time ~ Condition, data = the_df)
+
+#ks_df
+WRS2::yuen(Response_Time ~ Condition, data = ks_df)
+```
+
+
+In compairing the means of the follow-up word across condition, I have found no difference of the means *t*(9.8) = 0.3, p > .05.  
+
+In compairing the means of the main word across condition, I have found no statistical significance of difference between the means *t*(5.6) = 1.1, p > .05.
+
+
+**Conclusion part 2**
+
+I have found no statistically signifance in the reading time of a semantically different word in our experiment. This could be because, the suprise-word appear so late in the text, and as we saw in the correlation test of word number, there is a decrease of response time as the word number increases. I also have a small dataset, which could have an impact on the results.
